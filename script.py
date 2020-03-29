@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 
+PATH = True
 
 # Take out annoying top bar in Chrome that warns it's being used under automation
 options = Options()
@@ -16,18 +17,22 @@ options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option('useAutomationExtension', False)
 
 # Driver is made outside of class because it needs to stay in scope for Chrome windows to remain open
-chrome = webdriver.Chrome(options=options)
+if PATH:
+    chrome = webdriver.Chrome(options=options)
+else:
+    chrome = webdriver.Chrome("/usr/lib/chromium-browser/chromedriver", options=options)
 
 
 class StockScreener:
 
-    def __init__(self, driver: webdriver.Chrome, stocks: tuple, key: str):
+    def __init__(self, driver: webdriver.Chrome, stocks: tuple, indexes: tuple, key: str):
 
         assert len(stocks) > 0  # Make sure at least one stock is in the list
 
         # Variables passed through constructor
         self.driver = driver
         self.stocks = stocks  # Stocks in watchlist
+        self.indexes = indexes  # Indexes in watchlist
 
         # Variables decided on startup
         self.zoom = "75%"
@@ -42,7 +47,6 @@ class StockScreener:
         self.biggestMovers = []  # List of biggest movers that will be shown onscreen
 
         # Constants
-        self.INDEXES = ("Dow Jones Industrial Average", "Nasdaq", "S & P 500")
         self.GOOGLE_LINK = "https://www.google.com"
         self.GOOGLE_LINK_FOR_QUERY = "https://www.google.com/search?q="
         self.KEY = key  # Use IEX instead of AlphaVantage because IEX gives us 50,000 free monthly API calls :)
@@ -155,16 +159,20 @@ class StockScreener:
     #switch tabs
     #Configuring drivers will be annoying
     #Write out resolution and OS to JSON file
+    #Set up Tools
 
 
     # Flow -> Determine number of windows to open -> Determine where they should be opened -> Open windows, calculate stocks we can fit, if number of stocks in watchlist is greater than ones we can fit determine biggest movers and make new windows for those, for the other ones make them cycle through
 
 # -------------------------------------------------------------------------------------------------------------------
 
-screener = StockScreener(chrome, ("BA", "AMZN", "AAPL", "TWTR", "F", "GM"), constants.iexKey)
+screener = StockScreener(chrome,
+                         ("BA", "AMZN", "AAPL", "TWTR", "F", "GM"),
+                         ("Dow Jones Industrial Average", "Nasdaq", "S & P 500"),
+                         constants.iexKey)
 
 #screener.setOperatingSystem()
 #screener.setMonitorResolution()
-#screener.run()
-screener.setPercentChanges()
-screener.setBiggestMovers()
+screener.run()
+#screener.setPercentChanges()
+#screener.setBiggestMovers()
