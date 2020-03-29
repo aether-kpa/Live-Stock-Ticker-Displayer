@@ -9,23 +9,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 
-PATH = True
-
-# Take out annoying top bar in Chrome that warns it's being used under automation
-options = Options()
-options.add_experimental_option("excludeSwitches", ["enable-automation"])
-options.add_experimental_option('useAutomationExtension', False)
-
-# Driver is made outside of class because it needs to stay in scope for Chrome windows to remain open
-if PATH:
-    chrome = webdriver.Chrome(options=options)
-else:
-    chrome = webdriver.Chrome("/usr/lib/chromium-browser/chromedriver", options=options)
-
 
 class StockScreener:
 
-    def __init__(self, driver: webdriver.Chrome, stocks: tuple, indexes: tuple, key: str):
+    def __init__(self, driver: webdriver.Chrome, stocks: tuple, indexes: tuple, key: str, zoom: str, time: float,
+                 monitorWidth: int, monitorHeight: int):
 
         assert len(stocks) > 0  # Make sure at least one stock is in the list
 
@@ -33,16 +21,17 @@ class StockScreener:
         self.driver = driver
         self.stocks = stocks  # Stocks in watchlist
         self.indexes = indexes  # Indexes in watchlist
+        self.zoom = zoom
+        self.sleepTime = time
 
         # Variables decided on startup
-        self.zoom = "75%"
         self.stocksPerRow = 3
         self.numberOfBiggestMoversDisplayed = 3  # Number of biggest movers that can be displayed on monitor
         self.windowWidth = 500
         self.windowHeight = 475
         self.os = ""
-        self.monitorWidth = 1440
-        self.monitorHeight = 900
+        self.monitorWidth = monitorWidth
+        self.monitorHeight = monitorHeight
         self.percentChanges = {}  # Dictionary of percent change from close to open corresponding to stock
         self.biggestMovers = []  # List of biggest movers that will be shown onscreen
 
@@ -52,7 +41,7 @@ class StockScreener:
         self.KEY = key  # Use IEX instead of AlphaVantage because IEX gives us 50,000 free monthly API calls :)
 
     # Main function
-    def run(self):
+    def run(self) -> None:
 
         self.openWindows()
         self.positionAndSizeWindows()
@@ -64,7 +53,7 @@ class StockScreener:
 
         self.changeView()
 
-    def openWindows(self):
+    def openWindows(self) -> None:
 
         action = ActionChains(self.driver)
 
@@ -77,8 +66,10 @@ class StockScreener:
             link.click()
             action.key_up(Keys.SHIFT).perform()
 
+            time.sleep(self.sleepTime)
+
     # Position the windows and make them the appropriate size
-    def positionAndSizeWindows(self):
+    def positionAndSizeWindows(self) -> None:
 
         currentX = 0
         currentY = 0
@@ -96,7 +87,7 @@ class StockScreener:
                 currentY += self.windowHeight
 
     # Scroll and zoom in on window to make chart fit screen
-    def changeView(self):
+    def changeView(self) -> None:
 
         for window in self.driver.window_handles:
             self.driver.switch_to.window(window)
@@ -106,7 +97,7 @@ class StockScreener:
             element = self.driver.find_element_by_class_name("aviV4d")  # aviV4d = class Google uses for their charts
             self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
 
-    def setMonitorResolution(self):  # Is all this extra work really needed?
+    def setMonitorResolution(self) -> None:  # Is all this extra work really needed?
 
         if self.os == "Mac":
             command = subprocess.Popen(["system_profiler", "SPDisplaysDataType"],
@@ -119,13 +110,13 @@ class StockScreener:
 
             # MAKE RESOLUTION GETTER FOR WINDOWS AND LINUX
 
-    def setOperatingSystem(self):  # Is all this extra work really needed?
+    def setOperatingSystem(self) -> None:  # Is all this extra work really needed?
         self.os = "Mac"
 
         # GET OS FOR OTHER OS's
 
     # Store overnight percent change for each stock in watchlist
-    def setPercentChanges(self):
+    def setPercentChanges(self) -> None:
 
         for stock in self.stocks:
             json = requests.get("https://cloud.iexapis.com/stable/stock/" + stock + "/quote?token=" + self.KEY).json()
@@ -138,7 +129,7 @@ class StockScreener:
             self.percentChanges.update({stock: percentChange})
 
     # From the dictionary created above, get the tickers for the N biggest changes
-    def setBiggestMovers(self):
+    def setBiggestMovers(self) -> None:
 
         for count in range(self.numberOfBiggestMoversDisplayed):
             maximum = 0
@@ -166,10 +157,34 @@ class StockScreener:
 
 # -------------------------------------------------------------------------------------------------------------------
 
-screener = StockScreener(chrome,
-                         ("BA", "AMZN", "AAPL", "TWTR", "F", "GM"),
-                         ("Dow Jones Industrial Average", "Nasdaq", "S & P 500"),
-                         constants.iexKey)
+PATH = True
+onRaspberryPi = False
+
+watchlist =  ("BA", "AMZN", "AAPL", "TWTR", "F", "GM")
+indexes = ("Dow Jones Industrial Average", "Nasdaq", "S & P 500")
+
+# Take out annoying top bar in Chrome that warns it's being used under automation
+options = Options()
+options.add_experimental_option("excludeSwitches", ["enable-automation"])
+options.add_experimental_option('useAutomationExtension', False)
+
+# Driver is made outside of class because it needs to stay in scope for Chrome windows to remain open
+if PATH:
+    chrome = webdriver.Chrome(options=options)
+else:
+    chrome = webdriver.Chrome(executable_path="/usr/lib/chromium-browser/chromedriver", options=options)
+
+if onRaspberryPi:
+    screener = StockScreener(chrome,
+                             watchlist,
+                             indexes,
+                             constants.iexKey, "75%", 1, 1680, 1050)
+else:
+    screener = StockScreener(chrome,
+                             watchlist,
+                             indexes,
+                             constants.iexKey, "75%", 0, 1440, 900)
+
 
 #screener.setOperatingSystem()
 #screener.setMonitorResolution()
